@@ -1,7 +1,7 @@
 # 「Sum」
 __Mailbolge__ is an experimental console utility, developed to ease email security mass-testing.  
 Packaged with all common proxy and mail formats support, it aims towards anonimity and coverage.  
-__Latest version:__ https://github.com/Guevara-chan/Mailbolge/releases/download/v0.02/Mailbolge.zip
+__Latest version:__ https://github.com/Guevara-chan/Mailbolge/releases/download/v0.02/Mailbolge.zip (direct link)
 
 # 「Featuræ」
 * Built-in proxy engine and checker (HTTPS/SOCKS4/SOCKS5).
