@@ -4,3 +4,6 @@ Packaged with HTTPS/SOCKS4/SOCKS5 proxy support, it aims towards anonimity and c
 
 # 「Reassembling」
 __Mailbolge__ was developed entirelly in [Boo v0.9.7.0](https://github.com/boo-lang/boo), using [Mailkit](https://github.com/jstedfast/MailKit) and [ProxySocket](https://github.com/poma/ProxySocket) external libararies.
+
+# Brief smaple of interfacing:
+![image](https://user-images.githubusercontent.com/8768470/43733868-b1fb5de4-99be-11e8-81e7-84e5147d51cf.png)
