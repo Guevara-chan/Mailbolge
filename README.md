@@ -9,7 +9,7 @@ __Latest version:__ https://github.com/Guevara-chan/Mailbolge/releases/download/
 * Asynchronous search engine.
 
 # 「Reassembling」
-__Mailbolge__ was developed entirelly in [Boo v0.9.7.0](https://github.com/boo-lang/boo), using [Mailkit](https://github.com/jstedfast/MailKit) and [ProxySocket](https://github.com/poma/ProxySocket) external libraries.  
+__Mailbolge__ was developed entirelly in [Boo v0.9.7.0](https://github.com/boo-lang/boo), with help of [Mailkit](https://github.com/jstedfast/MailKit) and [ProxySocket](https://github.com/poma/ProxySocket) external libraries.  
 It requires .NET 4.0 framework to run, though confirmed as being mostly compatible with [Mono 4.6.2+](https://github.com/mono/mono).
 
 # 「Brief sample of interfacing」
