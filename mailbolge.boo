@@ -172,7 +172,6 @@ class Mailbolge:
 			# Initial setup.
 			hardlimit.Wait()
 			peak = Math.Max(++tension, peak)
-			box.brake.CancelAfter(1000)
 			# Actual check-up.
 			if box.proxy = proxlist.get_next():	log("Launching check through •$(box.proxy)• for •$(box)•", 'note')
 			else: log("Launching check for •$(box)•", 'note')
@@ -231,7 +230,7 @@ class Mailbolge:
 						try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token), brake.Token))
 						except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
 				except ex: log("└$ex", 'fault')
-				Task.WaitAll(tasks.ToArray(), 2000)
+				Task.WaitAll(tasks.ToArray(), 60 * 1000 * 15)
 				brake.Cancel()
 				log("└•$(proxlist.Count.report())• proxies was added to list.\n", 'io')
 				
