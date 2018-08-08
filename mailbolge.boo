@@ -251,7 +251,7 @@ class Mailbolge:
 				dest	= reporter(value)
 				for entry in File.ReadLines(value):
 					if box = entry.to_box():
-						tasks.Add(Task.WhenAny(Task.Run(checker(box, dest), brake.Token), Task.Delay(25000)))
+						tasks.Add(Task.WhenAny(Task.Run(checker(box, dest), brake.Token), Task.Delay(60000)))
 					else: log("Invalid entry encountered: •$(entry)•", 'fault')
 			except ex: log(ex, 'fault')
 			# Wait phase.
