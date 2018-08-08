@@ -237,6 +237,8 @@ class Mailbolge:
 					log("│-Proxy registration was cancelled due to timeout.", 'fault')
 				breaker.Cancel()
 				log("└•$(proxlist.Count.account())• proxies was added to list.\n", 'io')
+			dbg("/[end:proxy]")
+
 
 	feed:
 		set:
@@ -258,7 +260,8 @@ class Mailbolge:
 			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}.reminder():
 				Task.WaitAll(tasks.ToArray(), -1)
 				breaker.Cancel()
-				log("\\•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
+				#log("•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
+			dbg("/[end]")
 #.}
 
 # ==Main code==
