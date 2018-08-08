@@ -220,31 +220,31 @@ class Mailbolge:
 	proxies:
 		set:
 			# Preparation phase.
+			dbg("/[proxy]")
 			progress	= 0
 			tasks		= List[of Task]()
 			brake		= CancellationTokenSource()
 			# Parsing phase.
-			dbg("/[proxy]")
 			try:
 				log("┌Registering proxies from '•$(value)•':", 'io')					
 				for entry in File.ReadLines(value):
-					try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token)))
+					try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token), brake.Token))
 					except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
 			except ex: log("└$ex", 'fault')
 			# Wait phase.
 			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))% [proxy]")}.reminder():
-				Task.WaitAll(tasks.ToArray(), 60 * 1000 * 10)
+				unless Task.WaitAll(tasks.ToArray(), 1000 * 60 * 10):
+					log("│-Proxy registration was cancelled due to timeout.", 'fault')
 				brake.Cancel()
 				log("└•$(proxlist.Count.account())• proxies was added to list.\n", 'io')
-				
 
 	feed:
 		set:
 			# Preparation phase.
+			dbg("/[feed]")
 			progress	= 0
 			tasks		= List[of Task]()
 			# Parsing phase.
-			dbg("/[feed]")
 			try:
 				log("Parsing '•$(value)•'...", 'io')
 				dest	= reporter(value)
