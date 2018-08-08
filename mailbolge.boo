@@ -157,8 +157,6 @@ class Mailbolge:
 	final dbg			= {info|info = ':I am Error:'; return self}
 	final hardlimit		= SemaphoreSlim(byte.MaxValue)
 	final reporter		= void
-	private tension		= 0
-	private	peak		= 0
 	private progress	= 0
 
 	# --Methods goes here.
@@ -171,7 +169,6 @@ class Mailbolge:
 		return def():
 			# Initial setup.
 			hardlimit.Wait()
-			peak = Math.Max(++tension, peak)
 			# Actual check-up.
 			if box.proxy = proxlist.get_next():	log("Launching check through •$(box.proxy)• for •$(box)•", 'note')
 			else: log("Launching check for •$(box)•", 'note')
@@ -183,7 +180,6 @@ class Mailbolge:
 				dest.echo(box, "success")
 			# Finalization.
 			hardlimit.Release()
-			tension--
 			progress++
 
 	def proxy_checker(entry as string, brake as CancellationToken):
@@ -215,40 +211,52 @@ class Mailbolge:
 			list.RemoveAt(0)
 			return entry
 
-	[Extension] static def report(num as int):
+	[Extension] static def account(num as int):
 		return ("$num" if num else "No")
+
+	[Extension] static def reminder(func as TimerCallback):
+		return Timer(func, null, 0, 200)
 
 	proxies:
 		set:
+			# Preparation phase.
 			progress	= 0
 			tasks		= List[of Task]()
 			brake		= CancellationTokenSource()
-			using Timer({dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}, null, 0, 200):
-				try:
-					log("┌Registering proxies from '•$(value)•':", 'io')					
-					for entry in File.ReadLines(value):
-						try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token), brake.Token))
-						except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
-				except ex: log("└$ex", 'fault')
-				Task.WaitAll(tasks.ToArray(), 60 * 1000 * 15)
+			# Parsing phase.
+			dbg("/[proxy]")
+			try:
+				log("┌Registering proxies from '•$(value)•':", 'io')					
+				for entry in File.ReadLines(value):
+					try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token)))
+					except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
+			except ex: log("└$ex", 'fault')
+			# Wait phase.
+			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))% [proxy]")}.reminder():
+				Task.WaitAll(tasks.ToArray(), 60 * 1000 * 10)
 				brake.Cancel()
-				log("└•$(proxlist.Count.report())• proxies was added to list.\n", 'io')
+				log("└•$(proxlist.Count.account())• proxies was added to list.\n", 'io')
 				
 
 	feed:
 		set:
-			progress	= tension = 0
+			# Preparation phase.
+			progress	= 0
 			tasks		= List[of Task]()
-			using Timer({dbg(" [$tension/$peak]")}, null, 0, 200):
-				try:
-					log("Parsing '•$(value)•'...", 'io')
-					dest	= reporter(value)
-					for entry in File.ReadLines(value):
-						if box = entry.to_box(): tasks.Add(Task.Run(checker(box, dest)))
-						else: log("Invalid entry encountered: •$(entry)•", 'fault')
-					Task.WaitAll(tasks.ToArray(), -1)
-				except ex: log(ex, 'fault')
-				log("└•$((progress.report if progress else 'No'))• email adresses was tested.\n", 'io')
+			# Parsing phase.
+			dbg("/[feed]")
+			try:
+				log("Parsing '•$(value)•'...", 'io')
+				dest	= reporter(value)
+				for entry in File.ReadLines(value):
+					if box = entry.to_box():
+						tasks.Add(Task.WhenAny(Task.Run(checker(box, dest)), Task.Delay(20000)))
+					else: log("Invalid entry encountered: •$(entry)•", 'fault')
+			except ex: log(ex, 'fault')
+			# Wait phase.
+			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}.reminder():
+				Task.WaitAll(tasks.ToArray(), -1)
+				log("•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
 #.}
 
 # ==Main code==
