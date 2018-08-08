@@ -1,11 +1,14 @@
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
+# Mailbolge mail scanner v0.03      #
+# Developed in 2018 by V.A. Guevara #
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
+
 import System
 import System.IO
 import System.Net
 import System.Threading
-import System.Reflection
 import System.Net.Sockets
 import System.Threading.Tasks
-import System.Linq.Enumerable
 import System.Collections.Generic
 import System.Text.RegularExpressions
 import System.Runtime.CompilerServices
@@ -23,7 +26,7 @@ class CUI:
 	def constructor():
 		dbg("")
 		log("""# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
-			# Mailbolge mail scanner v0.02      #
+			# Mailbolge mail scanner v0.03      #
 			# Developed in 2018 by V.A. Guevara #
 			# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
 			""".Replace('\t', ''), "meta")
@@ -64,7 +67,7 @@ class Box:
 	public final server		= ""
 	public final user	 	= ""
 	public final password	= ""
-	private final cancel	= CancellationTokenSource().Token
+	public final brake	= CancellationTokenSource()
 	private client as duck
 	public proxy as Proxy
 
@@ -82,8 +85,8 @@ class Box:
 		try:
 			if sock:
 					sock.Connect(host, port)
-					client.Connect(sock, host, port, SecureSocketOptions.Auto, cancel)
-			else:	client.Connect(host, port, SecureSocketOptions.Auto, cancel)
+					client.Connect(sock, host, port, SecureSocketOptions.Auto, brake.Token)
+			else:	client.Connect(host, port, SecureSocketOptions.Auto, brake.Token)
 			return client
 		except ex:
 			client.Dispose()
@@ -91,7 +94,7 @@ class Box:
 
 	def probe():
 		try: 
-			service.Authenticate(email, password, cancel)
+			service.Authenticate(email, password, brake.Token)
 			return "open"
 		except ex:
 			if ex.Message.StartsWith("Please log in via your web browser"): return 'auth'
@@ -169,6 +172,7 @@ class Mailbolge:
 			# Initial setup.
 			hardlimit.Wait()
 			peak = Math.Max(++tension, peak)
+			box.brake.CancelAfter(1000)
 			# Actual check-up.
 			if box.proxy = proxlist.get_next():	log("Launching check through •$(box.proxy)• for •$(box)•", 'note')
 			else: log("Launching check for •$(box)•", 'note')
@@ -183,21 +187,20 @@ class Mailbolge:
 			tension--
 			progress++
 
-	def proxy_checker(entry as string):
+	def proxy_checker(entry as string, brake as CancellationToken):
 		url	= Uri((entry if entry.Contains("://") else "proxy://$entry"))
 		return def():
 			# Initial setup.
 			hardlimit.Wait()
 			# Actual checking.
-			try:
-				if (proxy = Proxy(url)).type:
-					log("├> Succesfully registered •$(url)•", 'success').proxlist.Add(proxy)
-					return self
+			try: (proxy = Proxy(url))
 			except: pass
-			log("├* Unable to connect through •$(url)•", 'fail')
+			unless brake.IsCancellationRequested: # Async is awesome.
+				if proxy and proxy.type: log("├> Succesfully registered •$(url)•", 'success').proxlist.Add(proxy)
+				else: log("├* Unable to connect through •$(url)•", 'fail')
+				progress++
 			# Finalization.
 			hardlimit.Release()
-			progress++ 
 
 
 	[Extension] static def to_box(entry as string):
@@ -219,16 +222,19 @@ class Mailbolge:
 	proxies:
 		set:
 			progress	= 0
-			tasks		= List[of Task]()			
+			tasks		= List[of Task]()
+			brake		= CancellationTokenSource()
 			using Timer({dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}, null, 0, 200):
 				try:
 					log("┌Registering proxies from '•$(value)•':", 'io')					
 					for entry in File.ReadLines(value):
-						try: tasks.Add(Task.Run(proxy_checker(entry)))
+						try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token), brake.Token))
 						except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
-					Task.WaitAll(tasks.ToArray(), 60 * 1000 * 20)
-					log("└•$(proxlist.Count.report())• proxies was added to list.\n", 'io')
 				except ex: log("└$ex", 'fault')
+				Task.WaitAll(tasks.ToArray(), 2000)
+				brake.Cancel()
+				log("└•$(proxlist.Count.report())• proxies was added to list.\n", 'io')
+				
 
 	feed:
 		set:
@@ -249,6 +255,6 @@ class Mailbolge:
 # ==Main code==
 def Main(argv as (string)):
 	AppDomain.CurrentDomain.AssemblyResolve += def(sender, e):
-		return Assembly.LoadFrom("lib/$(AssemblyName(e.Name).Name).dll")
+		return Reflection.Assembly.LoadFrom("lib/$(Reflection.AssemblyName(e.Name).Name).dll")
 	Mailbolge(CUI(), DiskReport, proxies: "proxy.lst", feed: (argv[0] if argv.Length else 'feed.txt'))
 	Threading.Thread.Sleep(3000)
