@@ -13,4 +13,4 @@ __Mailbolge__ was developed entirelly in [Boo v0.9.7.0](https://github.com/boo-l
 It requires .NET 4.0 framework to run, though confirmed as being mostly compatible with [Mono 4.6.2+](https://github.com/mono/mono).
 
 # 「Brief sample of interfacing」
-![image](https://user-images.githubusercontent.com/8768470/43733868-b1fb5de4-99be-11e8-81e7-84e5147d51cf.png)
+![image](https://user-images.githubusercontent.com/8768470/43846855-0417f158-9b38-11e8-9141-d0d4d16398a6.png)
