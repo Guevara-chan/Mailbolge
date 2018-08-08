@@ -67,7 +67,7 @@ class Box:
 	public final server		= ""
 	public final user	 	= ""
 	public final password	= ""
-	public final brake	= CancellationTokenSource()
+	public final breaker	= CancellationTokenSource()
 	private client as duck
 	public proxy as Proxy
 
@@ -85,8 +85,8 @@ class Box:
 		try:
 			if sock:
 					sock.Connect(host, port)
-					client.Connect(sock, host, port, SecureSocketOptions.Auto, brake.Token)
-			else:	client.Connect(host, port, SecureSocketOptions.Auto, brake.Token)
+					client.Connect(sock, host, port, SecureSocketOptions.Auto, breaker.Token)
+			else:	client.Connect(host, port, SecureSocketOptions.Auto, breaker.Token)
 			return client
 		except ex:
 			client.Dispose()
@@ -94,7 +94,7 @@ class Box:
 
 	def probe():
 		try: 
-			service.Authenticate(email, password, brake.Token)
+			service.Authenticate(email, password, breaker.Token)
 			return "open"
 		except ex:
 			if ex.Message.StartsWith("Please log in via your web browser"): return 'auth'
@@ -182,7 +182,7 @@ class Mailbolge:
 			hardlimit.Release()
 			progress++
 
-	def proxy_checker(entry as string, brake as CancellationToken):
+	def proxy_checker(entry as string, breaker as CancellationToken):
 		url	= Uri((entry if entry.Contains("://") else "proxy://$entry"))
 		return def():
 			# Initial setup.
@@ -190,7 +190,7 @@ class Mailbolge:
 			# Actual checking.
 			try: (proxy = Proxy(url))
 			except: pass
-			unless brake.IsCancellationRequested: # Async is awesome.
+			unless breaker.IsCancellationRequested: # Async is awesome.
 				if proxy and proxy.type: log("├> Succesfully registered •$(url)•", 'success').proxlist.Add(proxy)
 				else: log("├* Unable to connect through •$(url)•", 'fail')
 				progress++
@@ -223,19 +223,19 @@ class Mailbolge:
 			dbg("/[proxy]")
 			progress	= 0
 			tasks		= List[of Task]()
-			brake		= CancellationTokenSource()
+			breaker		= CancellationTokenSource()
 			# Parsing phase.
 			try:
 				log("┌Registering proxies from '•$(value)•':", 'io')					
 				for entry in File.ReadLines(value):
-					try: tasks.Add(Task.Run(proxy_checker(entry, brake.Token), brake.Token))
+					try: tasks.Add(Task.Run(proxy_checker(entry, breaker.Token), breaker.Token))
 					except ex: log("│Invalid URL provided: •$(entry)•", 'fault')
 			except ex: log("└$ex", 'fault')
 			# Wait phase.
 			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))% [proxy]")}.reminder():
 				unless Task.WaitAll(tasks.ToArray(), 1000 * 60 * 10):
 					log("│-Proxy registration was cancelled due to timeout.", 'fault')
-				brake.Cancel()
+				breaker.Cancel()
 				log("└•$(proxlist.Count.account())• proxies was added to list.\n", 'io')
 
 	feed:
@@ -244,20 +244,20 @@ class Mailbolge:
 			dbg("/[feed]")
 			progress	= 0
 			tasks		= List[of Task]()
-			brake		= CancellationTokenSource()
+			breaker		= CancellationTokenSource()
 			# Parsing phase.
 			try:
 				log("Parsing '•$(value)•'...", 'io')
 				dest	= reporter(value)
 				for entry in File.ReadLines(value):
 					if box = entry.to_box():
-						tasks.Add(Task.WhenAny(Task.Run(checker(box, dest), brake.Token), Task.Delay(60000)))
+						tasks.Add(Task.WhenAny(Task.Run(checker(box, dest), breaker.Token), Task.Delay(60000)))
 					else: log("Invalid entry encountered: •$(entry)•", 'fault')
 			except ex: log(ex, 'fault')
 			# Wait phase.
 			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}.reminder():
 				Task.WaitAll(tasks.ToArray(), -1)
-				brake.Cancel()
+				breaker.Cancel()
 				log("\\•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
 #.}
 
