@@ -23,6 +23,7 @@ class CUI:
 		"fault": "DarkRed", "meta": "Green"}
 	static final control = char('•')
 
+	# --Methods goes here.
 	def constructor():
 		dbg("")
 		log("""# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
@@ -31,17 +32,19 @@ class CUI:
 			# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
 			""".Replace('\t', ''), "meta")
 
-	# --Methods goes here.
 	def log(info, channel as string):
 		lock Console:
 			for chunk in "$info".Split(control):
 				Console.ForegroundColor = Enum.Parse(ConsoleColor, channels[channel])
 				Console.Write(chunk)
 			Console.WriteLine()
-			Console.ForegroundColor = ConsoleColor.Gray
 
 	def dbg(info):
 		Console.Title = "◢.Mailbolge$info.◣"
+
+	def destructor():
+		Console.ForegroundColor = ConsoleColor.Gray
+		Threading.Thread.Sleep(3000)
 # -------------------- #
 class DiskReport:
 	final pref		= ""
@@ -129,7 +132,7 @@ class Proxy:
 
 	# --Methods goes here.
 	def constructor(url as Uri):
-		ip		= Dns.GetHostEntry(url.Host).AddressList[0]
+		ip		= url.Host.toIP()
 		port 	= url.Port
 		if url.UserInfo: user, password = url.UserInfo.Split(char(':'))
 		for t in (ProxyTypes.Https, ProxyTypes.Socks4, ProxyTypes.Socks5):
@@ -138,6 +141,10 @@ class Proxy:
 
 	def test():
 		return Box("mail.ru", "I am", "Error", proxy: self).connect(false)
+
+	[Extension] static def toIP(entry as string) as IPAddress:
+		try:	return IPAddress.Parse(entry)
+		except:	return Dns.GetHostEntry(entry).AddressList[0]
 
 	override def ToString():
 		return "proxy://$ip:$port"
@@ -180,7 +187,7 @@ class Mailbolge:
 				dest.echo(box, "success")
 			# Finalization.
 			hardlimit.Release()
-			progress++
+			lock progress: progress+=1
 
 	def proxy_checker(entry as string, breaker as CancellationToken):
 		url	= Uri((entry if entry.Contains("://") else "proxy://$entry"))
@@ -193,7 +200,7 @@ class Mailbolge:
 			unless breaker.IsCancellationRequested: # Async is awesome.
 				if proxy and proxy.type: log("├> Succesfully registered •$(url)•", 'success').proxlist.Add(proxy)
 				else: log("├* Unable to connect through •$(url)•", 'fail')
-				progress++
+				progress+=1
 			# Finalization.
 			hardlimit.Release()
 
@@ -206,10 +213,11 @@ class Mailbolge:
 				return Box(server, user, password)
 
 	[Extension] static def get_next[of T](list as List[of T]):
-		if list.Count:
-			list.Add(entry = list[0])
-			list.RemoveAt(0)
-			return entry
+		lock list:
+			if list.Count:
+				list.Add(entry = list[0])
+				list.RemoveAt(0)
+				return entry
 
 	[Extension] static def account(num as int):
 		return ("$num" if num else "No")
@@ -239,7 +247,6 @@ class Mailbolge:
 				log("└•$(proxlist.Count.account())• proxies was added to list.\n", 'io')
 			dbg("/[end:proxy]")
 
-
 	feed:
 		set:
 			# Preparation phase.
@@ -260,7 +267,7 @@ class Mailbolge:
 			using {dbg("::$(Math.Round(progress*100.0/tasks.Count, 1))%")}.reminder():
 				Task.WaitAll(tasks.ToArray(), -1)
 				breaker.Cancel()
-				#log("•$((progress.account() if progress else 'No'))• email adresses was tested.\n", 'io')
+				#log("•$((progress.account() if progress else 'No'))• email adresses was tested.", 'io')
 			dbg("/[end]")
 #.}
 
@@ -269,4 +276,3 @@ def Main(argv as (string)):
 	AppDomain.CurrentDomain.AssemblyResolve += def(sender, e):
 		return Reflection.Assembly.LoadFrom("lib/$(Reflection.AssemblyName(e.Name).Name).dll")
 	Mailbolge(CUI(), DiskReport, proxies: "proxy.lst", feed: (argv[0] if argv.Length else 'feed.txt'))
-	Threading.Thread.Sleep(3000)
